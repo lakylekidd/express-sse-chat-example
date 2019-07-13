@@ -14,4 +14,7 @@ module.exports = () => {
     // Apply middlewares
     app.use(cors());
     app.use(jsonParser);
+
+    // Return the app module
+    return app;
 }
