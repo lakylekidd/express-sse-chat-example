@@ -133,4 +133,4 @@ Right now we have a very basic boilerplate set up to start testing if our applic
 
 Open up your terminal and run your app by typing `npm run dev` and watch the terminal log to see if it is in fact running on the desired host/port.
 
-Happy coding,
+Happy coding :wink:,
