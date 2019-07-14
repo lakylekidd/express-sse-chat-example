@@ -17,4 +17,7 @@ module.exports = (secret) => {
     const toData = (token) => {
         return jwt.verify(token, secret);
     }
+
+    // Export module functions
+    return { toJwt, toData };
 }

@@ -1,8 +1,10 @@
 // Export auth controller functions
 module.exports = (db) => {
     // Import the User module
+    const bcrypt = require('bcryptjs');
+    const config = require('./../config');
     const User = require('./user.model')(db);
-    const jwt = require('./jwt.helper');
+    const jwt = require('./jwt.helper')(config.jwtSecret);
 
     // Generates a new token
     const generateToken = (userId, username) => {
@@ -107,8 +109,9 @@ module.exports = (db) => {
                     }
                 })
                 .catch(err => {
+                    console.log(err)
                     return res.status(500).send({
-                        message: "Something went wrong. Please try again later!",
+                        message: "Somethings went wrong. Please try again later!",
                         error: err
                     })
                 })
