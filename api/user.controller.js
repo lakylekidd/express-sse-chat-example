@@ -25,7 +25,7 @@ module.exports = (db) => {
         });
 
         // Check if username is valid
-        if (username.length > 2) return res.status(400).send({
+        if (username.length <= 2) return res.status(400).send({
             message: "Username is not valid!"
         });
 
