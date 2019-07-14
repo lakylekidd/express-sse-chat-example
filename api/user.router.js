@@ -12,7 +12,7 @@ module.exports = (db) => {
     router.post('/register', userController.register);
 
     // Define the Login route
-    router.post('/token', userController.login);
+    router.get('/token', userController.login);
 
     // Return the router
     return router;

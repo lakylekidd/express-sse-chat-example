@@ -38,8 +38,6 @@ module.exports = (db) => {
         }
 
         // Check if user already exists
-        // Not sure if it's alright to return a message
-        // That informs user that this username is already taken
         User.count({ where: { username: username } })
             .then(count => {
                 // Check if at least one account exists

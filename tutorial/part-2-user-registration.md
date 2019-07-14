@@ -124,6 +124,7 @@ module.exports = (db) => {
      * Registers a new user in the database
      */
     const register = (req, res, next) => {
+        // We will add more code here
         throw new Error("Not implemented exception");
     }
 
@@ -131,6 +132,7 @@ module.exports = (db) => {
      * Logs in an existing user
      */
     const login = (req, res, next) => {
+        // We will add more code here
         throw new Error("Not implemented exception");
     }
 
@@ -138,3 +140,206 @@ module.exports = (db) => {
     return { register, login };
 }
 ```
+
+In this controller a lot of things are happening. First of all we are wrapping the entire controller into an exported function which takes only one parameter, the db module. Then we are exporting the two functions of the controller as an object. 
+
+We are wrapping the controller so that we can replace the db file should we need to test the controller's functions in the future.
+
+The first method we are implementing is the generate token method. This method takes in the user id and username of the user and converts them into a jwt token. It is at this point where we decide what sort of information we would like to include in our token. For our chat app, the user id and username should suffice.
+
+### Register Method Implementation
+For the register method, we will need to retrieve the user details from the submit form. We will find this in the body of the request
+```
+const { username, password, password_confirmation } = req.body;
+```
+
+After we have retrieve them, we should perform some basic checks such as if the password and confirmation password match, if the username is valid etc. For now, the following should be enough for our purposes
+
+```
+// Check if passwords match
+if (password !== password_confirmation) return res.status(400).send({
+    message: "Password and confirmation passwords do not match!"
+});
+
+// Check if username is valid
+if (username.length <= 2) return res.status(400).send({
+    message: "Username is not valid!"
+});
+```
+
+Once we verify all details are correct, we should create an object that matches the user model. In this case, we only need username and password. As a common practice, we should never store sensitive user information in a raw format on the database to prevent personal details from leaking should there be a breach. For this we shall use `bcryptjs` tool to hash the user password and store that hash in the database instead. This is not the most secure way of hashing a password, as there are more advanced methods out there, but for our simple chat app, this should suffice for now.
+
+```
+// Create the user account
+const account = {
+    username,
+    password: bcrypt.hashSync(password, 10)
+}
+```
+
+Sequelize has a very specific way of performing CRUD operations on the database. However, before we attempt to store the user in the database, we will be performing a very simple step of checking whether or not the user already exists, after that we proceed with storing the information in the database and return a status 201:
+
+```
+User.count({ where: { username: username } })
+.then(count => {
+    // Check if at least one account exists
+    // with the specified username
+    if (count > 0) return res.status(422).send({
+        message: "Cannot create account!"
+    });
+
+    // If code reached this far
+    // Perform registration
+    User.create(account)
+        .then(user => {
+            // Remove password from user
+            const { username, id } = user;
+            // Return success with new user object
+            return res.status(201).json({ username, id });
+        })
+        .catch(err => {
+            // Cannot create user
+            return next(err);
+        })
+})
+.catch(err => {
+    // Cannot create user
+    return next(err);
+})
+```
+
+### Login Method Implementation
+For the login, we shall be retrieving the same information, only this time, naturally, we won't be retrieving a password confirmation field.
+
+```
+const { username, password } = req.body;
+```
+
+Once we do this, we must check if the username and password provided have been in fact provided. If not, then we immediatelly return a status 400 with a brief message to the user.
+
+After performing a check to see if a user with the provided username exists indeed in our database, we proceed with, once again, hashing the provided password and comparing it to the one we have already in store in the database, using bcryptjs function `compareSync`.
+
+After we've been assured they are indeed the same, we call the `generateToken` function we created earlier providing the user id and username, and return the generated token under the property `jwt`.
+
+```
+// Check if username and password exist
+if (username && password) {
+    // Find the usr based on username
+    User
+        .findOne({
+            where: { username: username }
+        })
+        .then(user => {
+            // Check if user was not found
+            if (!user) {
+                return res.status(400).send({
+                    message: "A user with this username does not exist."
+                });
+            }
+
+            // Hash provided password and compare
+            const pwCorrect = bcrypt.compareSync(password, user.password);
+            // Check if comparison returned true
+            if (pwCorrect) {
+                // Password was correct
+                // Return a JWT token with the user id
+                const token = generateToken(user.id, user.username);
+                // Send back to client
+                return res.send({
+                    jwt: token
+                })
+            } else {
+                // Password was not correct
+                // Return 400
+                return res.status(400).send({
+                    message: "The password was incorrect."
+                })
+            }
+        })
+        .catch(err => {
+            console.log(err)
+            return res.status(500).send({
+                message: "Somethings went wrong. Please try again later!",
+                error: err
+            })
+        })
+
+
+} else {
+    // Return invalid
+    return res.status(400).send({
+        message: "Please supply a valid email and password"
+    })
+}
+```
+
+## 6. Routing Implementation
+With expressJS, defining routes is a very simple procedure. Currently, we will only be defining the routes we need for the user registration and the user login.
+
+Under the api folder, create another file called `user.router.js` and paste the following code:
+```
+// Import the required modules
+const { Router } = require('express');
+
+// Export the user router module
+module.exports = (db) => {
+    // Import the required controller
+    const userController = require('./user.controller')(db);
+    // Initialize the router
+    const router = Router();
+
+    // Define the Register route
+    router.post('/register', userController.register);
+
+    // Define the Login route
+    router.post('/token', userController.login);
+
+    // Return the router
+    return router;
+}
+```
+
+Since this module is only responsible for forwarding requests based on the route, it shouldn't include any other logic within it. This is why we defined all of our logic inside the controler file.
+
+Again, this module exports a function that takes an argument for the db. It then requires the user controller and initializes it with the db file we retrieved. Following that we define a router variable that we can use to define our routes.
+
+Pay attention to the defined url path. `/register` is actually incomplete. Since this file only defines user routes, we will assume that what comes behinde it is `/users` however we do not define it here, how is that?
+
+Since we are exporting the router as a module, we will later on import it in our `app.js` file, where we will redirect all requests made to the `/users` path to our users router.
+
+Inside the `app.js` file, we will be adding our routes just bellow the app initialization.
+
+```
+ // Instantiate app
+const app = express();
+
+// ----> New Code
+// Import the routers
+const userRouter = require('./user.router')(db);
+...
+
+```
+
+and then, just after we have included our middlewares, we will apply the router.
+
+```
+...
+// Apply middlewares
+app.use(cors());
+app.use(jsonParser);
+
+// Apply the routers
+app.use('/users', userRouter);
+...
+```
+
+## Test your app 
+Express and nodejs are very flexible when it comes to creating a server and implementing api routes and methods that interract with the database.
+
+There are many methos that will help you manage and separate your code to become more efficient and promote testability. 
+
+A very interesting and lightweight tool you can use is `httpie`, which will allow you to test your endpoints. You can also use `postman` which provides a friendlier UI.
+
+In the next part, we will be implementing our server side events and chat logic along with the ability to store chat-rooms in the database along with the chat history.
+
+Happy coding :wink:,
