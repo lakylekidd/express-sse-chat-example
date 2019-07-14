@@ -1,12 +1,8 @@
-// Import required modules
-const jwt = require('./../helpers/jwt');
-const db = require('./../db');
-const User = require('./../models/user.model');
-
 // Export auth controller functions
 module.exports = (db) => {
     // Import the User module
     const User = require('./user.model')(db);
+    const jwt = require('./jwt.helper');
 
     // Generates a new token
     const generateToken = (userId, username) => {

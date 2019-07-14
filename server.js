@@ -1,9 +1,9 @@
 // Import requirements
 const http = require('http');
 const config = require('./config');
-const db = require('./db');
 
 // Initialize the app using the database
+const db = require('./db')(config.connectionString);
 const app = require('./api/app')(db);
 
 // Create the server
